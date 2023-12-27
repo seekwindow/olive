@@ -119,6 +119,7 @@ func (k *Kernel) Run() {
 		bout, err := NewBout(showID, k.showMap, k.cfg)
 		if err != nil {
 			k.log.Error(err)
+			return true
 		}
 		bout.AddMonitor()
 		return true

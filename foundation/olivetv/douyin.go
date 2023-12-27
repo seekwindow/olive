@@ -2,10 +2,8 @@ package olivetv
 
 import (
 	"errors"
-	"fmt"
 	"math/rand"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-olive/olive/foundation/olivetv/model"
@@ -25,8 +23,6 @@ func init() {
 
 type douyin struct {
 	base
-
-	failedCounter atomic.Int32
 }
 
 func (this *douyin) Name() string {
@@ -37,99 +33,7 @@ func (this *douyin) Snap(tv *TV) error {
 	tv.Info = &Info{
 		Timestamp: time.Now().Unix(),
 	}
-	return this.set(tv)
-}
-
-func (this *douyin) set(tv *TV) error {
-	url := "https://live.douyin.com/" + tv.RoomID
-	cookie := tv.cookie
-	if cookie == "" {
-		cookie = "__ac_nonce=" + this.AcNonce()
-	}
-	resp, err := req.C().R().SetHeaders(
-		map[string]string{
-			"accept":        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-			"referer":       "https://live.douyin.com/",
-			HeaderUserAgent: CHROME,
-			HeaderCookie:    cookie,
-		}).
-		Get(url)
-	if err != nil {
-		return err
-	}
-
-	tv.streamerName, _ = util.Match(`live-room-nickname">([^<]+)<`, resp.String())
-	tv.roomName, _ = util.Match(`live-room-name">([^<]+)<`, resp.String())
-
-	if !strings.Contains(resp.String(), `\"status\":2`) {
-		return nil
-	}
-
-	tv.roomOn = true
-
-	setURL := func() error {
-		// f, _ := os.Create("a.html")
-		// f.WriteString(resp.String())
-		// f.Close()
-		// text := `self.__pace_f.push([1,"{\"common\":3}"])`
-		text := resp.String()
-		matchArr, err := util.MatchArr(`self\.__pace_f\.push\(\[1,"(\{.*?\})"\]\)`, text)
-		if err != nil {
-			return err
-		}
-
-		streamIDMap := make(map[string][]string)
-		for _, match := range matchArr {
-			match = fmt.Sprintf(`"%s"`, match)
-			err = jsoniter.UnmarshalFromString(match, &match)
-			if err != nil {
-				return err
-			}
-			streamID := gjson.Get(match, "common.stream").String()
-			streamIDMap[streamID] = append(streamIDMap[streamID], match)
-		}
-
-		getMatch := func() string {
-			for _, streamArr := range streamIDMap {
-				if len(streamArr) >= 2 {
-					for _, v := range streamArr {
-						if strings.Contains(v, "_or4") {
-							return v
-						}
-					}
-				}
-			}
-			return ""
-		}
-
-		match := getMatch()
-		if match == "" {
-			return errors.New("douyin: no match")
-		}
-
-		flv := gjson.Get(match, "data.origin.main.flv").String()
-		hls := gjson.Get(match, "data.origin.main.hls").String()
-		_ = hls
-		tv.streamURL = flv
-
-		// f, _ = os.Create("a.json")
-		// f.WriteString(match)
-		// f.Close()
-		return nil
-	}
-
-	const failedMax = 100
-	if this.failedCounter.Load() > failedMax {
-		return setURL()
-	}
-
-	err = this.setURL2(tv)
-	if err != nil || tv.streamURL == "" {
-		this.failedCounter.Add(1)
-		return setURL()
-	}
-
-	return nil
+	return this.setURL2(tv)
 }
 
 func (this *douyin) setURL2(tv *TV) error {
@@ -193,7 +97,7 @@ func (this *douyin) getCookie(tv *TV) string {
 }
 
 func (this *douyin) generateCookie(tv *TV) string {
-	url := "https://live.douyin.com/" + tv.RoomID
+	url := "https://live.douyin.com/'740849246012"
 	cookie := "__ac_nonce=" + this.AcNonce()
 	resp, err := req.C().R().SetHeaders(
 		map[string]string{
