@@ -1,13 +1,16 @@
 package olivetv
 
 import (
+	"encoding/json"
 	"errors"
-	"math/rand"
+	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/iawia002/lux/request"
+
 	"github.com/go-olive/olive/foundation/olivetv/model"
-	"github.com/go-olive/olive/foundation/olivetv/util"
 	"github.com/imroc/req/v3"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/tidwall/gjson"
@@ -33,18 +36,22 @@ func (this *douyin) Snap(tv *TV) error {
 	tv.Info = &Info{
 		Timestamp: time.Now().Unix(),
 	}
-	return this.setURL2(tv)
+	return this.set(tv)
 }
 
-func (this *douyin) setURL2(tv *TV) error {
-	tv.cookie = this.getCookie(tv)
+func (this *douyin) set(tv *TV) error {
+	ttwid, err := this.ttwid()
+	if err != nil {
+		return err
+	}
+	cookie := "ttwid=" + ttwid
 
 	api := `https://live.douyin.com/webcast/room/web/enter/`
 	resp, err := req.R().
 		SetHeaders(map[string]string{
 			HeaderUserAgent:   CHROME,
 			"referer":         "https://live.douyin.com/",
-			"cookie":          tv.cookie,
+			"cookie":          cookie,
 			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 			"Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
 			"Cache-Control":   "no-cache",
@@ -88,47 +95,35 @@ func (this *douyin) setURL2(tv *TV) error {
 	tv.roomOn = true
 
 	tv.roomName = gjson.Get(text, "title").String()
+	tv.streamerName = gjson.Get(text, "owner.nickname").String()
 
 	return nil
 }
 
-func (this *douyin) getCookie(tv *TV) string {
-	return this.generateCookie(tv)
-}
-
-func (this *douyin) generateCookie(tv *TV) string {
-	url := "https://live.douyin.com/'740849246012"
-	cookie := "__ac_nonce=" + this.AcNonce()
-	resp, err := req.C().R().SetHeaders(
-		map[string]string{
-			"accept":        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-			HeaderUserAgent: CHROME,
-			HeaderCookie:    cookie,
-		}).
-		Get(url)
+func (this *douyin) ttwid() (string, error) {
+	body := map[string]interface{}{
+		"aid":           1768,
+		"union":         true,
+		"needFid":       false,
+		"region":        "cn",
+		"cbUrlProtocol": "https",
+		"service":       "www.ixigua.com",
+		"migrate_info":  map[string]string{"ticket": "", "source": "node"},
+	}
+	bytes, err := json.Marshal(body)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	tv.streamerName, _ = util.Match(`live-room-nickname">([^<]+)<`, resp.String())
-	var ttwid string
-	for _, c := range resp.Cookies() {
-		// log.Println(c.Name, c.Value)
-		if c.Name == "ttwid" {
-			ttwid = c.Value
-		}
+	payload := strings.NewReader(string(bytes))
+	resp, err := request.Request(http.MethodPost, "https://ttwid.bytedance.com/ttwid/union/register/", payload, nil)
+	if err != nil {
+		return "", err
 	}
-	if ttwid != "" {
-		cookie += "; ttwid=" + ttwid
+	defer resp.Body.Close() // nolint
+	cookie := resp.Header.Get("Set-Cookie")
+	re := regexp.MustCompile(`ttwid=([^;]+)`)
+	if match := re.FindStringSubmatch(cookie); match != nil {
+		return match[1], nil
 	}
-
-	return cookie
-}
-
-func (this *douyin) AcNonce() string {
-	arr := make([]string, 21)
-	cands := strings.Split("1234567890abcdef", "")
-	for i := range arr {
-		arr[i] = cands[rand.Intn(len(cands))]
-	}
-	return strings.Join(arr, "")
+	return "", errors.New("douyin ttwid request failed")
 }
