@@ -8,4 +8,4 @@ patchesStrategicMerge:
 images:
   - name: olive-api-image
     newName: olive-api-arm64
-    newTag: 0.6.2
+    newTag: 0.6.3
