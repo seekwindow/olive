@@ -68,7 +68,8 @@ func (this *huya) streamURL(roomID string) (string, error) {
 			decodedRet, _ := base64.StdEncoding.DecodeString(u)
 			decodedURL := string(decodedRet)
 			if strings.Contains(decodedURL, "replay") { //重播
-				return "https:" + u, nil
+				liveLineURL := decodedURL
+				return "https:" + liveLineURL, nil
 			} else {
 				liveLineURL := this.proc(decodedURL)
 				liveLineURL = strings.Replace(liveLineURL, "hls", "flv", -1)
@@ -147,12 +148,13 @@ func (this *huya) setRoomOn() Option {
 
 func (this *huya) setStreamURL() Option {
 	return func(tv *TV) (err error) {
-		if !tv.roomOn {
-			return nil
-		}
 		tv.streamURL, err = this.streamURL(tv.RoomID)
 		if !strings.Contains(tv.streamURL, "https") {
 			tv.roomOn = false
+		}
+		if !tv.roomOn {
+			tv.replayURL = tv.streamURL
+			tv.streamURL = ""
 		}
 		return
 	}

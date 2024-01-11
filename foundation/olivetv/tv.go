@@ -82,6 +82,7 @@ type Info struct {
 	Timestamp int64
 
 	streamURL    string
+	replayURL    string
 	roomOn       bool
 	roomName     string
 	streamerName string
@@ -130,6 +131,13 @@ func (tv *TV) StreamURL() (string, bool) {
 	return tv.streamURL, tv.roomOn
 }
 
+func (tv *TV) ReplayURL() string {
+	if tv == nil || tv.Info == nil {
+		return ""
+	}
+	return tv.replayURL
+}
+
 func (tv *TV) RoomName() (string, bool) {
 	if tv == nil || tv.Info == nil {
 		return "", false
@@ -158,6 +166,9 @@ func (tv *TV) String() string {
 	}
 	if streamURL, ok := tv.StreamURL(); ok {
 		sb.WriteString(format("StreamUrl", streamURL))
+	}
+	if replayURL := tv.ReplayURL(); replayURL != "" {
+		sb.WriteString(format("ReplayURL", replayURL))
 	}
 	return sb.String()
 }
