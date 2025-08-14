@@ -30,7 +30,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
-          version: latest
-          args: release --rm-dist
+          version: 1
+          args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.OLIVE_RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

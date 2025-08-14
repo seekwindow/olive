@@ -64,6 +64,7 @@ func (this *douyin) set(tv *TV) error {
 			"browser_name":     "Chrome",
 			"browser_version":  "92.0.4515.159",
 			"web_rid":          tv.RoomID,
+			"a_bogus":          "m70RgttJEd8fCdFGmOnpCWAlE",
 		}).
 		Get(api)
 	if err != nil {
